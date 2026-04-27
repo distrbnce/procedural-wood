@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Procedural Wood Playground</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="tool-panel" aria-label="Wood controls">
+        <div class="brand-row">
+          <div>
+            <h1>Procedural Wood</h1>
+            <p id="speciesMeta">Loading preset...</p>
+          </div>
+          <button id="exportButton" type="button">Export JSON</button>
+        </div>
+
+        <label class="field">
+          <span>Species</span>
+          <select id="presetSelect"></select>
+        </label>
+
+        <div id="controls" class="controls"></div>
+      </section>
+
+      <section class="preview-grid" aria-label="Rendered wood previews">
+        <article class="preview-panel">
+          <div class="preview-heading">
+            <h2>Side Grain</h2>
+            <span id="sideResolution"></span>
+          </div>
+          <canvas id="sideCanvas" width="720" height="480"></canvas>
+        </article>
+
+        <article class="preview-panel">
+          <div class="preview-heading">
+            <h2>End Grain</h2>
+            <span id="endResolution"></span>
+          </div>
+          <canvas id="endCanvas" width="720" height="480"></canvas>
+        </article>
+      </section>
+    </main>
+
+    <dialog id="exportDialog">
+      <form method="dialog">
+        <div class="dialog-heading">
+          <h2>Current Preset</h2>
+          <button value="close" type="submit" aria-label="Close">Close</button>
+        </div>
+        <textarea id="exportText" spellcheck="false"></textarea>
+      </form>
+    </dialog>
+
+    <script type="module" src="./wood.js"></script>
+  </body>
+</html>
