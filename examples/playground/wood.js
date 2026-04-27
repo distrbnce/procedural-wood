@@ -171,10 +171,16 @@ const state = {
   presets: [],
   current: null,
   renderFrame: 0,
-  resizeFrame: 0
+  resizeFrame: 0,
+  refineTimer: 0,
+  renderId: 0,
+  latestRenderId: 0,
+  renderWorker: null
 };
 
-const maxRenderPixels = 260000;
+const previewRenderPixels = 45000;
+const refinedRenderPixels = 160000;
+const refineDelayMs = 180;
 
 const presetSelect = document.querySelector("#presetSelect");
 const speciesMeta = document.querySelector("#speciesMeta");
@@ -189,6 +195,39 @@ const exportText = document.querySelector("#exportText");
 
 const sideContext = sideCanvas.getContext("2d", { willReadFrequently: false });
 const endContext = endCanvas.getContext("2d", { willReadFrequently: false });
+
+function createRenderWorker() {
+  if (!window.Worker) {
+    return null;
+  }
+
+  let worker;
+  try {
+    worker = new Worker("./render-worker.js");
+  } catch {
+    return null;
+  }
+  worker.addEventListener("message", (event) => {
+    const { id, mode, width, height, pixels, quality } = event.data;
+    if (id < state.latestRenderId) {
+      return;
+    }
+
+    const canvas = mode === "side" ? sideCanvas : endCanvas;
+    const context = mode === "side" ? sideContext : endContext;
+    const resolutionLabel = mode === "side" ? sideResolution : endResolution;
+
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+
+    const image = new ImageData(new Uint8ClampedArray(pixels), width, height);
+    context.putImageData(image, 0, 0);
+    resolutionLabel.textContent = quality === "preview" ? `${width} x ${height} preview` : `${width} x ${height}`;
+  });
+  return worker;
+}
 
 function hash2(x, y) {
   const value = Math.sin(x * 127.1 + y * 311.7) * 43758.5453123;
@@ -214,11 +253,11 @@ function noise(x, y) {
   return lerp(lerp(a, b, ux), lerp(c, d, ux), uy);
 }
 
-function fbm(x, y) {
+function fbm(x, y, octaves = 5) {
   let value = 0;
   let amplitude = 0.5;
   let frequency = 1;
-  for (let i = 0; i < 5; i += 1) {
+  for (let i = 0; i < octaves; i += 1) {
     value += amplitude * noise(x * frequency, y * frequency);
     frequency *= 2;
     amplitude *= 0.5;
@@ -250,12 +289,13 @@ function preparePreset(preset) {
   return prepared;
 }
 
-function writePixel(data, offset, u, v, params, mode) {
+function writePixel(data, offset, u, v, params, mode, quality) {
   const x = (u - 0.5) * 3.2;
   const y = (v - 0.5) * 2.2;
+  const octaves = quality === "preview" ? 3 : 5;
 
-  const warpX = (fbm(x * params.warpScale, y * params.warpScale) - 0.5) * params.warpStrength;
-  const warpY = (fbm(x * params.warpScale + 19.7, y * params.warpScale - 6.3) - 0.5) * params.warpStrength;
+  const warpX = (fbm(x * params.warpScale, y * params.warpScale, octaves) - 0.5) * params.warpStrength;
+  const warpY = (fbm(x * params.warpScale + 19.7, y * params.warpScale - 6.3, octaves) - 0.5) * params.warpStrength;
   const wx = x + warpX;
   const wy = y + warpY;
 
@@ -263,16 +303,16 @@ function writePixel(data, offset, u, v, params, mode) {
     ? Math.hypot(wx, wy) * 1.35
     : wx + Math.sin(wy * 2.4) * 0.08;
 
-  let rings = 0.5 + 0.5 * Math.sin(ringCoordinate * params.ringFrequency + fbm(wx * 2.5, wy * 2.5) * 2.2);
+  let rings = 0.5 + 0.5 * Math.sin(ringCoordinate * params.ringFrequency + fbm(wx * 2.5, wy * 2.5, octaves) * 2.2);
   rings = Math.pow(rings, lerp(1.0, 4.5, params.ringContrast));
 
-  const fiber = fbm(wx * 0.75, wy * params.grainStretch) * params.grainStrength;
-  const poreSeed = noise(wx * 38, wy * 38);
-  const pores = params.poreDensity * (poreSeed > 0.72 ? 0.22 : 0);
-  const rays = params.rayIntensity * Math.pow(Math.abs(Math.sin((mode === "end" ? Math.atan2(wy, wx) : wx) * 36)), 28) * 0.35;
-  const knots = params.knotDensity * knotField(wx, wy, mode);
+  const fiber = fbm(wx * 0.75, wy * params.grainStretch, octaves) * params.grainStrength;
+  const poreSeed = quality === "preview" ? 0 : noise(wx * 38, wy * 38);
+  const pores = quality === "preview" ? 0 : params.poreDensity * (poreSeed > 0.72 ? 0.22 : 0);
+  const rays = quality === "preview" ? 0 : params.rayIntensity * Math.pow(Math.abs(Math.sin((mode === "end" ? Math.atan2(wy, wx) : wx) * 36)), 28) * 0.35;
+  const knots = quality === "preview" ? 0 : params.knotDensity * knotField(wx, wy, mode);
   const ribbon = (params.ribbonStripeIntensity ?? 0) * Math.pow(0.5 + 0.5 * Math.sin((wx + wy * 0.18) * 13), 3) * 0.25;
-  const oil = (params.oilStreakIntensity ?? 0) * Math.pow(fbm(wx * 2.2, wy * 8), 2) * 0.28;
+  const oil = (params.oilStreakIntensity ?? 0) * Math.pow(fbm(wx * 2.2, wy * 8, octaves), 2) * 0.28;
 
   const mask = clamp(rings + fiber + pores + knots + oil - rays + ribbon, 0, 1);
   const highlight = clamp(0.08 + rays + ribbon * 0.4 - pores, -0.15, 0.25);
@@ -307,14 +347,15 @@ function knotField(x, y, mode) {
   return clamp(value, 0, 1) * 0.45;
 }
 
-function renderCanvas(canvas, context, resolutionLabel, mode) {
+function renderCanvas(canvas, context, resolutionLabel, mode, quality) {
   const rect = canvas.getBoundingClientRect();
   const cssWidth = Math.max(320, rect.width);
   const cssHeight = Math.max(280, rect.height);
   const pixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
   const rawWidth = cssWidth * pixelRatio;
   const rawHeight = cssHeight * pixelRatio;
-  const pixelScale = Math.min(1, Math.sqrt(maxRenderPixels / (rawWidth * rawHeight)));
+  const maxPixels = quality === "preview" ? previewRenderPixels : refinedRenderPixels;
+  const pixelScale = Math.min(1, Math.sqrt(maxPixels / (rawWidth * rawHeight)));
   const width = Math.max(260, Math.floor(rawWidth * pixelScale));
   const height = Math.max(220, Math.floor(rawHeight * pixelScale));
 
@@ -324,44 +365,67 @@ function renderCanvas(canvas, context, resolutionLabel, mode) {
   }
 
   const params = state.current;
+  if (state.renderWorker) {
+    const id = state.renderId;
+    state.renderWorker.postMessage({ id, mode, quality, width, height, params });
+    return;
+  }
+
   const image = context.createImageData(width, height);
   const data = image.data;
   for (let y = 0; y < height; y += 1) {
     const v = y / height;
     for (let x = 0; x < width; x += 1) {
       const offset = (y * width + x) * 4;
-      writePixel(data, offset, x / width, v, params, mode);
+      writePixel(data, offset, x / width, v, params, mode, quality);
     }
   }
   context.putImageData(image, 0, 0);
-  resolutionLabel.textContent = `${width} x ${height}`;
+  resolutionLabel.textContent = quality === "preview" ? `${width} x ${height} preview` : `${width} x ${height}`;
 }
 
-function render() {
+function render(quality = "refined") {
   if (!state.current) {
     return;
   }
   speciesMeta.textContent = state.current.category;
-  renderCanvas(sideCanvas, sideContext, sideResolution, "side");
-  renderCanvas(endCanvas, endContext, endResolution, "end");
+  state.renderId += 1;
+  state.latestRenderId = state.renderId;
+  if (state.renderWorker) {
+    state.renderWorker.terminate();
+  }
+  state.renderWorker = createRenderWorker();
+  renderCanvas(sideCanvas, sideContext, sideResolution, "side", quality);
+  renderCanvas(endCanvas, endContext, endResolution, "end", quality);
 }
 
-function scheduleRender() {
+function scheduleRender(quality = "refined") {
   if (state.renderFrame) {
+    state.pendingQuality = state.pendingQuality === "refined" || quality === "refined" ? "refined" : "preview";
     return;
   }
 
+  state.pendingQuality = quality;
   state.renderFrame = window.requestAnimationFrame(() => {
+    const nextQuality = state.pendingQuality;
     state.renderFrame = 0;
-    render();
+    state.pendingQuality = null;
+    render(nextQuality);
   });
+}
+
+function scheduleRefinedRender() {
+  window.clearTimeout(state.refineTimer);
+  state.refineTimer = window.setTimeout(() => {
+    scheduleRender("refined");
+  }, refineDelayMs);
 }
 
 function updatePreset(name) {
   const preset = state.presets.find((item) => item.name === name);
   state.current = preparePreset(preset);
   buildControls();
-  scheduleRender();
+  scheduleRender("refined");
 }
 
 function buildControls() {
@@ -390,8 +454,10 @@ function buildControls() {
     input.addEventListener("input", () => {
       state.current[key] = Number(input.value);
       value.textContent = Number(state.current[key]).toFixed(2);
-      scheduleRender();
+      scheduleRender("preview");
+      scheduleRefinedRender();
     });
+    input.addEventListener("change", () => scheduleRender("refined"));
 
     top.append(label, value);
     control.append(top, input);
@@ -436,7 +502,7 @@ window.addEventListener("resize", () => {
   }
   state.resizeFrame = window.requestAnimationFrame(() => {
     state.resizeFrame = 0;
-    scheduleRender();
+    scheduleRender("refined");
   });
 });
 
