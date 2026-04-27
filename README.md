@@ -1,12 +1,14 @@
-# Procedural Wood
+# Earth/Sun Spirograph: Procedural Woodgrain Designer
 
 A parameterized reference library for procedural wood grain algorithms and species presets.
+
+The name frames woodgrain as an Earth/Sun drawing system: a procedural echo of ultraviolet light, seasonal growth, and Earth's changing tilt in relation to the Sun.
 
 ## Playground
 
 Open the rendered browser example:
 
-[Procedural Wood Playground](https://distrbnce.github.io/procedural-wood/)
+[Earth/Sun Spirograph](https://distrbnce.github.io/procedural-wood/)
 
 ## Goals
 
