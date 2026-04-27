@@ -1,0 +1,15 @@
+{
+  "name": "Pine",
+  "category": "softwood",
+  "ringFrequency": 5.5,
+  "ringContrast": 0.65,
+  "warpStrength": 0.35,
+  "warpScale": 1.1,
+  "grainStrength": 0.55,
+  "grainStretch": 9.0,
+  "knotDensity": 0.8,
+  "poreDensity": 0.02,
+  "rayIntensity": 0.0,
+  "baseColor": "#d9a85f",
+  "latewoodColor": "#9a5b25"
+}

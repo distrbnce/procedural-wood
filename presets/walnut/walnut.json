@@ -1,0 +1,15 @@
+{
+  "name": "Walnut",
+  "category": "diffuse-porous hardwood",
+  "ringFrequency": 6.0,
+  "ringContrast": 0.35,
+  "warpStrength": 0.7,
+  "warpScale": 1.8,
+  "grainStrength": 0.7,
+  "grainStretch": 10.0,
+  "knotDensity": 0.2,
+  "poreDensity": 0.25,
+  "rayIntensity": 0.05,
+  "baseColor": "#5b351f",
+  "latewoodColor": "#1f130d"
+}

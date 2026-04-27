@@ -1,0 +1,15 @@
+{
+  "name": "Maple",
+  "category": "diffuse-porous hardwood",
+  "ringFrequency": 7.0,
+  "ringContrast": 0.18,
+  "warpStrength": 0.2,
+  "warpScale": 1.2,
+  "grainStrength": 0.25,
+  "grainStretch": 14.0,
+  "knotDensity": 0.05,
+  "poreDensity": 0.12,
+  "rayIntensity": 0.1,
+  "baseColor": "#e3c995",
+  "latewoodColor": "#b98f55"
+}

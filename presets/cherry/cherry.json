@@ -1,0 +1,15 @@
+{
+  "name": "Cherry",
+  "category": "diffuse-porous hardwood",
+  "ringFrequency": 7.5,
+  "ringContrast": 0.32,
+  "warpStrength": 0.32,
+  "warpScale": 1.4,
+  "grainStrength": 0.42,
+  "grainStretch": 11.0,
+  "knotDensity": 0.12,
+  "poreDensity": 0.18,
+  "rayIntensity": 0.08,
+  "baseColor": "#b7653f",
+  "latewoodColor": "#6c2f20"
+}

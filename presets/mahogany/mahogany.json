@@ -1,0 +1,16 @@
+{
+  "name": "Mahogany",
+  "category": "diffuse-porous hardwood",
+  "ringFrequency": 6.5,
+  "ringContrast": 0.45,
+  "warpStrength": 0.45,
+  "warpScale": 1.3,
+  "grainStrength": 0.65,
+  "grainStretch": 18.0,
+  "knotDensity": 0.04,
+  "poreDensity": 0.2,
+  "rayIntensity": 0.12,
+  "ribbonStripeIntensity": 0.7,
+  "baseColor": "#8f3f27",
+  "latewoodColor": "#40170f"
+}

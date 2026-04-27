@@ -1,0 +1,15 @@
+{
+  "name": "Oak",
+  "category": "ring-porous hardwood",
+  "ringFrequency": 9.0,
+  "ringContrast": 0.8,
+  "warpStrength": 0.25,
+  "warpScale": 1.5,
+  "grainStrength": 0.65,
+  "grainStretch": 12.0,
+  "knotDensity": 0.15,
+  "poreDensity": 0.85,
+  "rayIntensity": 0.75,
+  "baseColor": "#b9864f",
+  "latewoodColor": "#5c341c"
+}

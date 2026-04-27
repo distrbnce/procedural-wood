@@ -1,0 +1,15 @@
+{
+  "name": "Birch",
+  "category": "diffuse-porous hardwood",
+  "ringFrequency": 6.0,
+  "ringContrast": 0.16,
+  "warpStrength": 0.18,
+  "warpScale": 1.0,
+  "grainStrength": 0.22,
+  "grainStretch": 13.0,
+  "knotDensity": 0.1,
+  "poreDensity": 0.08,
+  "rayIntensity": 0.08,
+  "baseColor": "#e6cf9e",
+  "latewoodColor": "#bd945e"
+}
