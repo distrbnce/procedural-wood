@@ -2,6 +2,12 @@
 
 A parameterized reference library for procedural wood grain algorithms and species presets.
 
+## Playground
+
+Open the rendered browser example:
+
+[Procedural Wood Playground](https://distrbnce.github.io/procedural-wood/)
+
 ## Goals
 
 - Map real wood visual traits to reusable procedural parameters.
