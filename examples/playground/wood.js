@@ -169,8 +169,12 @@ const fallbackValues = {
 
 const state = {
   presets: [],
-  current: null
+  current: null,
+  renderFrame: 0,
+  resizeFrame: 0
 };
+
+const maxRenderPixels = 260000;
 
 const presetSelect = document.querySelector("#presetSelect");
 const speciesMeta = document.querySelector("#speciesMeta");
@@ -236,17 +240,17 @@ function hexToRgb(hex) {
   return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
 }
 
-function mixRgb(a, b, t) {
-  return [
-    Math.round(lerp(a[0], b[0], t)),
-    Math.round(lerp(a[1], b[1], t)),
-    Math.round(lerp(a[2], b[2], t))
-  ];
+function preparePreset(preset) {
+  const prepared = structuredClone(preset);
+  for (const [key] of controlSchema) {
+    prepared[key] ??= fallbackValues[key] ?? 0;
+  }
+  prepared.baseRgb = hexToRgb(prepared.baseColor);
+  prepared.latewoodRgb = hexToRgb(prepared.latewoodColor);
+  return prepared;
 }
 
-function shadePixel(u, v, params, mode) {
-  const baseColor = hexToRgb(params.baseColor);
-  const latewoodColor = hexToRgb(params.latewoodColor);
+function writePixel(data, offset, u, v, params, mode) {
   const x = (u - 0.5) * 3.2;
   const y = (v - 0.5) * 2.2;
 
@@ -272,9 +276,14 @@ function shadePixel(u, v, params, mode) {
 
   const mask = clamp(rings + fiber + pores + knots + oil - rays + ribbon, 0, 1);
   const highlight = clamp(0.08 + rays + ribbon * 0.4 - pores, -0.15, 0.25);
-  const color = mixRgb(baseColor, latewoodColor, mask);
+  const highlightOffset = highlight * 255;
+  const baseColor = params.baseRgb;
+  const latewoodColor = params.latewoodRgb;
 
-  return color.map((channel) => clamp(Math.round(channel + highlight * 255), 0, 255));
+  data[offset] = clamp(Math.round(lerp(baseColor[0], latewoodColor[0], mask) + highlightOffset), 0, 255);
+  data[offset + 1] = clamp(Math.round(lerp(baseColor[1], latewoodColor[1], mask) + highlightOffset), 0, 255);
+  data[offset + 2] = clamp(Math.round(lerp(baseColor[2], latewoodColor[2], mask) + highlightOffset), 0, 255);
+  data[offset + 3] = 255;
 }
 
 function knotField(x, y, mode) {
@@ -300,24 +309,28 @@ function knotField(x, y, mode) {
 
 function renderCanvas(canvas, context, resolutionLabel, mode) {
   const rect = canvas.getBoundingClientRect();
-  const scale = Math.min(window.devicePixelRatio || 1, 2);
-  const width = Math.max(320, Math.floor(rect.width * scale));
-  const height = Math.max(280, Math.floor(rect.height * scale));
+  const cssWidth = Math.max(320, rect.width);
+  const cssHeight = Math.max(280, rect.height);
+  const pixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
+  const rawWidth = cssWidth * pixelRatio;
+  const rawHeight = cssHeight * pixelRatio;
+  const pixelScale = Math.min(1, Math.sqrt(maxRenderPixels / (rawWidth * rawHeight)));
+  const width = Math.max(260, Math.floor(rawWidth * pixelScale));
+  const height = Math.max(220, Math.floor(rawHeight * pixelScale));
 
   if (canvas.width !== width || canvas.height !== height) {
     canvas.width = width;
     canvas.height = height;
   }
 
+  const params = state.current;
   const image = context.createImageData(width, height);
+  const data = image.data;
   for (let y = 0; y < height; y += 1) {
+    const v = y / height;
     for (let x = 0; x < width; x += 1) {
       const offset = (y * width + x) * 4;
-      const color = shadePixel(x / width, y / height, state.current, mode);
-      image.data[offset] = color[0];
-      image.data[offset + 1] = color[1];
-      image.data[offset + 2] = color[2];
-      image.data[offset + 3] = 255;
+      writePixel(data, offset, x / width, v, params, mode);
     }
   }
   context.putImageData(image, 0, 0);
@@ -333,14 +346,22 @@ function render() {
   renderCanvas(endCanvas, endContext, endResolution, "end");
 }
 
+function scheduleRender() {
+  if (state.renderFrame) {
+    return;
+  }
+
+  state.renderFrame = window.requestAnimationFrame(() => {
+    state.renderFrame = 0;
+    render();
+  });
+}
+
 function updatePreset(name) {
   const preset = state.presets.find((item) => item.name === name);
-  state.current = structuredClone(preset);
-  for (const [key] of controlSchema) {
-    state.current[key] ??= fallbackValues[key] ?? 0;
-  }
+  state.current = preparePreset(preset);
   buildControls();
-  render();
+  scheduleRender();
 }
 
 function buildControls() {
@@ -369,7 +390,7 @@ function buildControls() {
     input.addEventListener("input", () => {
       state.current[key] = Number(input.value);
       value.textContent = Number(state.current[key]).toFixed(2);
-      render();
+      scheduleRender();
     });
 
     top.append(label, value);
@@ -410,7 +431,13 @@ exportButton.addEventListener("click", () => {
 });
 
 window.addEventListener("resize", () => {
-  window.requestAnimationFrame(render);
+  if (state.resizeFrame) {
+    window.cancelAnimationFrame(state.resizeFrame);
+  }
+  state.resizeFrame = window.requestAnimationFrame(() => {
+    state.resizeFrame = 0;
+    scheduleRender();
+  });
 });
 
 try {
